@@ -142,7 +142,7 @@ def plot_norms(data, tmin, tmax):
     rec_len = len(norms['r_mdat'])
     xs = np.arange(0, rec_len) * fs
 
-    fig, (ax_m, ax_g) = plt.subplots(2, 1)
+    fig, (ax_m, ax_g) = plt.subplots(2, 1, figsize=(10, 6))
     ax_m.plot(xs[start:stop], norms['r_mdat'][start:stop], 'k', linewidth=1, label='Raw Signal')
     ax_m.plot(xs[start:stop], norms['f_mdat'][start:stop], 'g', linewidth=1, label='Filtered w/o cal file Signal')
     ax_m.plot(xs[start:stop], norms['fc_mdat'][start:stop], 'b', linewidth=1, label='Filtered w/ cal file Signal')
@@ -157,3 +157,8 @@ def plot_norms(data, tmin, tmax):
     ax_g.set(xlabel='Time (s)',
              ylabel='Signal Norm')
     ax_g.legend(loc='upper right')
+
+
+def simp_plot(x,y):
+    fig, ax = plt.subplots(1, 1, figsize=(15, 3))
+    ax.plot(x, y)
