@@ -62,6 +62,7 @@ class RecClass:
 
 
 def find_norm(data):
+
     # This function takes in the data dictionary created from a RecClass object and returns a dictionary called
     # norms. These norms are the signal vector norms at a given point in time, so if your recording is 10,000 samples
     # then the norm vectors will be of length 10,000.
@@ -80,6 +81,7 @@ def find_norm(data):
 
 
 def find_rms(data):
+
     # This function takes data from RecClass.data and creates a dictionary containing rms values for each norm
     # vector created in the find_norm() function.
 
@@ -98,17 +100,41 @@ def find_rms(data):
 
 
 def find_drop(data):
+
+    # this function takes the rms values calculated in the find_rms function and then uses those
+    # to calculate the reduction factor. This is calculated by taking the raw rms over the filtered rms
+    # doing this for both filtered using a fine calibration file and filtered without a fine
+    # calibration file.
+
+    #   running the find_rms() function defined above
     rms = find_rms(data)
+
+    # creating an empty dictionary to hold calculated drops
     drop = {}
+
+    # for loop going through and finding the drop for both magnetometers and gradiometers
+    # using a fine calibration file and not using a fine calibration file
     for i in ['m', 'g']:
+
+        #   defining name to be used to index into the rms dictionary
         name = i + 'dat'
+
+        #   calculating raw rms over filtered rms without calibration file
         drop[name] = rms['r_' + i + 'dat'] / rms['f_' + i + 'dat']
+
+        #   defining name to index into rms dict
         name_c = i + 'cdat'
+
+        #   calculating raw rms over filtered rms with calibration file
         drop[name_c] = rms['r_' + i + 'dat'] / rms['fc_' + i + 'dat']
+
     return drop
 
 
 def plot_norms(data, tmin, tmax):
+
+    # sorry this plot function is messy, will document it better soon...
+
     norms = find_norm(data)
     fs = 1 / 1000
     start = int(tmin / fs)
