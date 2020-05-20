@@ -142,18 +142,21 @@ def plot_norms(data, tmin, tmax):
     rec_len = len(norms['r_mdat'])
     xs = np.arange(0, rec_len) * fs
 
-    fig, (ax_m, ax_g) = plt.subplots(2, 1, figsize=(13, 9))
-    ax_m.plot(xs[start:stop], norms['r_mdat'][start:stop], 'k', linewidth=1, label='Raw Signal')
-    ax_m.plot(xs[start:stop], norms['f_mdat'][start:stop], 'g', linewidth=1, label='Filtered w/o cal file Signal')
-    ax_m.plot(xs[start:stop], norms['fc_mdat'][start:stop], 'b', linewidth=1, label='Filtered w/ cal file Signal')
-    ax_m.set(ylabel='Signal Norm',
-             title='Raw vs filtered signal vector norms over time')
-    ax_m.legend(loc='upper right')
-    ax_m.grid();
-    ax_g.grid()
-    ax_g.plot(xs[start:stop], norms['r_gdat'][start:stop], 'k', linewidth=1, label='Raw Signal')
-    ax_g.plot(xs[start:stop], norms['f_gdat'][start:stop], 'g', linewidth=1, label='Filtered w/o cal file Signal')
-    ax_g.plot(xs[start:stop], norms['fc_gdat'][start:stop], 'b', linewidth=1, label='Filtered w/ cal file Signal')
-    ax_g.set(xlabel='Time (s)',
-             ylabel='Signal Norm')
-    ax_g.legend(loc='upper right')
+    fig, ax = plt.subplots(2, 1, figsize=(13, 9))
+
+    for j, i in enumerate(['m', 'g']):
+        name = i+'dat'
+        line = ax[j].plot(
+            xs[start:stop], norms['r_' + name][start:stop], 'k',
+            xs[start:stop], norms['f_' + name][start:stop], 'g',
+            xs[start:stop], norms['fc_' + name][start:stop], 'b',
+            linewidth=1,
+        )
+        ax[j].set(ylabel='Signal Norm')
+        ax[j].grid()
+        line[0].set_label('Raw Signal')
+        line[1].set_label('Filtered w/o cal file Signal')
+        line[2].set_label('Filtered w/ cal file Signal')
+        ax[j].legend(loc='upper right')
+    ax[0].set(title='Raw vs filtered signal vector norms over time')
+    ax[1].set(xlabel='Time (s)')
