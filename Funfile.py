@@ -21,6 +21,7 @@ import mne
 from numpy import linalg as LA
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 
 class RecClass:
@@ -31,7 +32,8 @@ class RecClass:
 
     # Path to the .fif file of the recording, and path to the SSS fine calibration file (machine specific!!)
     data_path = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/eddy_current3/'
-    calibration_file = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/Analysis/sss_cal.dat'
+    calibration_file_new = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/Analysis/sss_cal_new.dat'
+    calibration_file_old = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/Analysis/sss_cal_orig.dat'
 
     # initializing the object
     def __init__(self, file_name, start, stop):
@@ -44,12 +46,13 @@ class RecClass:
         # Applying SSS without using the calibration file
         self.rawSSS = mne.preprocessing.maxwell_filter(self.raw,
                                                        coord_frame='meg',
-                                                       verbose='warning')
+                                                       verbose='warning',
+                                                       calibration=self.calibration_file_old)
         # Applying SSS using the calibration file
         self.rawSSSc = mne.preprocessing.maxwell_filter(self.raw,
                                                         coord_frame='meg',
                                                         verbose='warning',
-                                                        calibration=self.calibration_file)
+                                                        calibration=self.calibration_file_new)
         # creates data arrays holding the recordings for easier analysis
         self.data = {'r_mdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='mag'),
                      'r_gdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='grad'),
@@ -234,6 +237,7 @@ def ave_norm(data, info):
 
     return ave_norms
 
+
 def ave_drop(data, info):
 
     ave_drops = {}
@@ -308,3 +312,88 @@ def plot_ave_vs_raw(data, info):
     ax[0].set(title='Raw vs Averaged Signal Norms')
     ax[1].set(xlabel='Time (s)')
     del j, i
+
+
+def save_raw(data, file_name):
+
+    save_path = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/Data_Arrays'
+    os.chdir(save_path)
+
+    data.save(str(file_name), overwrite=True)
+
+
+class RecClass_Order_Cal:
+
+    # This class is the same a RecClass in the begining of FunFile but it will specify the orders of expansion for the
+
+    # Path to the .fif file of the recording, and path to the SSS fine calibration file (machine specific!!)
+    data_path = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/eddy_current3/'
+
+    # initializing the object
+    def __init__(self, file_name, start, stop, internal, external, diag_cal_mat):
+        # reading in raw file and also fixing coil types
+        self.raw = (mne.io.read_raw_fif(self.data_path + str(file_name),
+                                        allow_maxshield=True,
+                                        verbose='warning')).fix_mag_coil_types()
+        self.dat = self.raw.get_data()
+        self.new_dat = np.matmul(diag_cal_mat, self.dat)
+        self.new_raw = mne.io.RawArray(self.new_dat, self.raw.info)
+
+        # marking bad channels
+        self.raw.info['bads'] = ['MEG1433', 'MEG1842', 'MEG1743']
+        # Applying SSS without using the calibration file
+        self.rawSSS = mne.preprocessing.maxwell_filter(self.new_raw,
+                                                       coord_frame='meg',
+                                                       verbose='warning',
+                                                       int_order=int(internal),
+                                                       ext_order=int(external))
+        # creates data arrays holding the recordings for easier analysis
+        self.data = {'r_mdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='mag'),
+                     'r_gdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='grad'),
+                     'f_mdat': self.rawSSS.get_data(start=start*1000, stop=stop*1000, picks='mag'),
+                     'f_gdat': self.rawSSS.get_data(start=start*1000, stop=stop*1000, picks='grad'),}
+        # setting the bad gradiometer channels from the raw gradiometer array to zero
+        self.data['r_gdat'][104,:] = 0
+        self.data['r_gdat'][130, :] = 0
+        self.data['r_gdat'][139, :] = 0
+
+
+def cal_error(file_name, diag_cal_mat):
+
+    data_path = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/eddy_current3/'
+
+    raw = (mne.io.read_raw_fif(data_path + str(file_name),
+                               allow_maxshield=True,
+                               verbose='warning')).fix_mag_coil_types()
+
+    data = raw.get_data()
+    new_dat = np.matmul(diag_cal_mat, data)
+    new_raw = mne.io.RawArray(new_dat, raw.info)
+
+    return new_raw
+
+
+def find_drop_order(data):
+
+    norms = {}
+
+    for i in ['r_mdat', 'r_gdat', 'f_mdat', 'f_gdat']:
+        norms[i] = LA.norm(data[i], axis=0)
+    del i
+
+    rms = {}
+
+
+    for i in ['r_mdat', 'r_gdat', 'f_mdat', 'f_gdat']:
+        rms[i] = np.sqrt(np.dot(norms[i], norms[i]))
+    del i
+
+    drop = {}
+
+    for i in ['m', 'g']:
+
+        name = i + 'dat'
+
+        drop[name] = rms['r_' + name] / rms['f_' + name]
+
+    return drop
