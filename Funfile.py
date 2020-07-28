@@ -328,6 +328,7 @@ class RecClass_Order_Cal:
 
     # Path to the .fif file of the recording, and path to the SSS fine calibration file (machine specific!!)
     data_path = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/eddy_current3/'
+    calibration_file_new = '/Users/cyoll/OneDrive/Documents/I-Labs/Research/Eddy_Current/Analysis/sss_cal_new.dat'
 
     # initializing the object
     def __init__(self, file_name, start, stop, internal, external, diag_cal_mat):
@@ -337,23 +338,26 @@ class RecClass_Order_Cal:
                                         verbose='warning')).fix_mag_coil_types()
         self.dat = self.raw.get_data()
         self.new_dat = np.matmul(diag_cal_mat, self.dat)
-        self.new_raw = mne.io.RawArray(self.new_dat, self.raw.info)
+        self.new_raw = mne.io.RawArray(self.new_dat, self.raw.info, verbose='warning')
 
         # marking bad channels
         self.raw.info['bads'] = ['MEG1433', 'MEG1842', 'MEG1743']
+        self.new_raw.info['bads'] = ['MEG1433', 'MEG1842', 'MEG1743']
         # Applying SSS without using the calibration file
         self.rawSSS = mne.preprocessing.maxwell_filter(self.new_raw,
                                                        coord_frame='meg',
-                                                       verbose='warning',
                                                        int_order=int(internal),
-                                                       ext_order=int(external))
+                                                       ext_order=int(external),
+                                                       verbose='warning',
+                                                       # calibration=self.calibration_file_new
+                                                       )
         # creates data arrays holding the recordings for easier analysis
-        self.data = {'r_mdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='mag'),
-                     'r_gdat': self.raw.get_data(start=start*1000, stop=stop*1000, picks='grad'),
+        self.data = {'r_mdat': self.new_raw.get_data(start=start*1000, stop=stop*1000, picks='mag'),
+                     'r_gdat': self.new_raw.get_data(start=start*1000, stop=stop*1000, picks='grad'),
                      'f_mdat': self.rawSSS.get_data(start=start*1000, stop=stop*1000, picks='mag'),
-                     'f_gdat': self.rawSSS.get_data(start=start*1000, stop=stop*1000, picks='grad'),}
+                     'f_gdat': self.rawSSS.get_data(start=start*1000, stop=stop*1000, picks='grad')}
         # setting the bad gradiometer channels from the raw gradiometer array to zero
-        self.data['r_gdat'][104,:] = 0
+        self.data['r_gdat'][104, :] = 0
         self.data['r_gdat'][130, :] = 0
         self.data['r_gdat'][139, :] = 0
 
@@ -383,7 +387,6 @@ def find_drop_order(data):
 
     rms = {}
 
-
     for i in ['r_mdat', 'r_gdat', 'f_mdat', 'f_gdat']:
         rms[i] = np.sqrt(np.dot(norms[i], norms[i]))
     del i
@@ -397,3 +400,41 @@ def find_drop_order(data):
         drop[name] = rms['r_' + name] / rms['f_' + name]
 
     return drop
+
+
+def plot_drop_order(drops):
+
+    xs = np.arange(1, 8)
+
+    mdrop = {
+        'Identity': np.zeros(7),
+        'Cal_error': np.zeros(7)
+    }
+
+    gdrop = {
+        'Identity': np.zeros(7),
+        'Cal_error': np.zeros(7)
+    }
+
+    fig, ax = plt.subplots(1, 2, figsize=(13, 7))
+
+    for i in ['Identity', 'Cal_error']:
+        for e in xs:
+            mdrop[i][e-1] = drops[i][str(e)]['mdat']
+            gdrop[i][e-1] = drops[i][str(e)]['gdat']
+
+        ax[0].plot(xs, mdrop[i], label=i)
+        ax[1].plot(xs, gdrop[i], label=i)
+
+    del i, e
+    ax[0].legend(loc='upper right')
+    ax[1].legend(loc='upper right')
+    ax[0].grid()
+    ax[1].grid()
+    ax[0].set(title='Magnetometer Drops over expansion order',
+              xlabel='Expansion order (external)',
+              ylabel='Reduction Factor')
+
+    ax[1].set(title='Gradiometer Drops over expansion order',
+              xlabel='Expansion order (external)',
+              ylabel='Reduction Factor')
